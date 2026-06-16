@@ -22,3 +22,13 @@
 
 ## 5. 環境同期の原則
 ブランチ間をまたぐ作業やデプロイ前には、必ず `Documents/environment_management.md` のチェックリストを更新・確認してください。
+
+## 6. ツール間協調ログ（Cursor ↔ Claude Code）
+
+複数のAIツールをまたぐ作業では、プロジェクトの日報ログに加えて以下を行うこと:
+
+- **作業開始時**: `shared-ag-core/ai-coordination/HANDOFF.md` のステータスと担当者を更新する
+- **作業終了・引き継ぎ時**: 「次にやること」を具体的に記述し、次の担当者名を明記する
+- **タスク完了時**: `HANDOFF.md` を `handoff-log/YYYY-MM-DD_task-name.md` にアーカイブしてリセットする
+
+詳細な運用ルールは `shared-ag-core/ai-coordination/README.md` を参照。

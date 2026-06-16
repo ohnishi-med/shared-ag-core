@@ -1,3 +1,8 @@
+---
+name: code-reviewer
+description: Python・JavaScript・Node.js・Electron のコードを、熟練したシニアフルスタックエンジニアの視点で詳細にレビューし、技術的負債やセキュリティ問題を検出するスキルです。
+---
+
 # スキル: code-reviewer — コードレビュー専門エージェント
 
 ## このスキルについて

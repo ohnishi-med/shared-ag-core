@@ -1,3 +1,8 @@
+---
+name: environment-manager
+description: Node.jsやElectronのバージョン定義・厳密管理を行い、実行環境や開発環境におけるバージョン差異のトラブルを防ぐためのスキルです。
+---
+
 # スキル: environment-manager — 環境定義・バージョン管理エージェント
 
 ## このスキルについて

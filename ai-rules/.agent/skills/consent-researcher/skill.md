@@ -1,3 +1,8 @@
+---
+name: consent-researcher
+description: 指定されたテーマに基づき、同意書・同意文書の作成に必要な要件をガイドラインや信頼できるWebサイトから収集するスキルです。
+---
+
 # スキル: consent-researcher — 同意書情報収集エージェント
 
 ## このスキルについて
