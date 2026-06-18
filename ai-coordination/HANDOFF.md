@@ -13,6 +13,7 @@
   - `inquiry-soap-formatter.user.js` と `vital-sign-formatter.user.js` を1つに統合した `js/inquiry-vital-soap-suite.user.js` を作成。
   - エディタ操作のユーティリティやバイタルブロック解析などの重複処理を一本化し、DOM監視（`MutationObserver`/`setInterval`）を1系統に削減して軽量化。
   - 設定ボタン（⚙️）および吹き出し設定パネル（`inquiry-soap-bubble-panel`）を不要と判断したため、完全に廃止し、ボタンは「問診整理」と「バイタル」の2つのみに整理。
+  - 初回バイタル入力時に身長が不明な症例を許容するため、未入力（空欄）の場合でも他の値（体重や血圧など）が入っていれば、数値なしの「│身長 cm」でバイタルブロックを生成・挿入できるようにバリデーションとテンプレートを改修。
   - `dev-proxy.user.js` および `install_scripts.bat` を統合スクリプトの適用に合わせて更新（スクリプト数を10個から9個に調整）。
   - Gitリポジトリ（origin main）へコミット・プッシュを完了。
 - **春日部市 URL修正・追加（計8施設）**（`projects/tools/maps/src/data/corrections.json`）（Claude Code / claude-sonnet-4-6）
