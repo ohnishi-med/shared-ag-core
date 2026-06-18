@@ -9,6 +9,12 @@
 デジカルおよびWeborcaの運用における病名設定漏れ（検査に対する病名漏れ、急性期病名の放置）の課題に対し、実運用で知識のない方でも簡単に病名チェックおよび修正ができる解決策を実装する。
 
 ## 完了済みの作業
+- **問診票SOAP変換とバイタルフォーマッターの統合および、設定バグの修正**（`projects/m3-tampermonkey-scripts/`）（Antigravity / Gemini 3.5 Flash）
+  - `inquiry-soap-formatter.user.js` と `vital-sign-formatter.user.js` を1つに統合した `js/inquiry-vital-soap-suite.user.js` を作成。
+  - エディタ操作のユーティリティやバイタルブロック解析などの重複処理を一本化し、DOM監視（`MutationObserver`/`setInterval`）を1系統に削減して軽量化。
+  - 吹き出し設定パネル（`inquiry-soap-bubble-panel`）が `overflow: hidden` な親要素の影響で非表示になっていたバグを修正。パネルを `document.body` 直下に配置し、⚙️ボタンの絶対座標から表示位置を動的計算するように改修。
+  - `dev-proxy.user.js` および `install_scripts.bat` を統合スクリプトの適用に合わせて更新（スクリプト数を10個から9個に調整）。
+  - Gitリポジトリ（origin main）へコミット・プッシュを完了。
 - **春日部市 URL修正・追加（計8施設）**（`projects/tools/maps/src/data/corrections.json`）（Claude Code / claude-sonnet-4-6）
   - 無効URL修正: 埼玉県-2282（杉浦眼科 豊春分院）、埼玉県-2315（黄川田クリニック）
   - URL追加: 埼玉県-2235（さだまつ眼科）、-2265（サテライトクリニックしょうわ）、-2284（小児救急夜間診療所）、-2290（かすかべララ眼科）、-2304（iCAREクリニック）、-2324（ミントクリニック春日部）
