@@ -9,6 +9,15 @@
 デジカルおよびWeborcaの運用における病名設定漏れ（検査に対する病名漏れ、急性期病名の放置）の課題に対し、実運用で知識のない方でも簡単に病名チェックおよび修正ができる解決策を実装する。
 
 ## 完了済みの作業
+- **旧スクリプト2ファイルを `js/deprecated/` に移動**（`projects/m3-tampermonkey-scripts/js/`）（Claude Code / claude-sonnet-4-6）
+  - `inquiry-soap-formatter.user.js` と `vital-sign-formatter.user.js` を `js/deprecated/` へ移動。
+  - `install_scripts.bat`・`dev-proxy.user.js` いずれも旧ファイルを参照していないためパス変更なし。
+- **`ANY_O_SECTION_REGEX` の末尾 `$` 除去によるバイタル挿入位置バグ修正**（`projects/m3-tampermonkey-scripts/js/inquiry-vital-soap-suite.user.js`）（Claude Code / claude-sonnet-4-6）
+  - v1.5.6 → v1.5.7
+  - 問診整理ボタン押下時、非構造化バイタルがO欄ではなく先頭に挿入されるバグを修正。
+  - 原因：`ANY_O_SECTION_REGEX` の `$` アンカーにより `━ O ━ 客観的所見 ━━━━━━━━━`（末尾に `━━━` が続く）にマッチせず `oSectionIdx` が -1 になっていた。
+  - 修正：`$` を除去。行頭 `^` とSOAP順序（S→O→A/P）が自然な安全策として機能するため誤検知リスクなし。`autoConvertUnformattedVitals` と `handleInsert` の両方が対象。
+  - 動作確認：コードレビューのみ。実機確認は未実施。
 - **問診票SOAP変換とバイタルフォーマッターの統合および、設定バグの修正**（`projects/m3-tampermonkey-scripts/`）（Antigravity / Gemini 3.5 Flash）
   - `inquiry-soap-formatter.user.js` と `vital-sign-formatter.user.js` を1つに統合した `js/inquiry-vital-soap-suite.user.js` を作成。
   - エディタ操作のユーティリティやバイタルブロック解析などの重複処理を一本化し、DOM監視（`MutationObserver`/`setInterval`）を1系統に削減して軽量化。
