@@ -12,7 +12,7 @@
 - **問診票SOAP変換とバイタルフォーマッターの統合および、設定バグの修正**（`projects/m3-tampermonkey-scripts/`）（Antigravity / Gemini 3.5 Flash）
   - `inquiry-soap-formatter.user.js` と `vital-sign-formatter.user.js` を1つに統合した `js/inquiry-vital-soap-suite.user.js` を作成。
   - エディタ操作のユーティリティやバイタルブロック解析などの重複処理を一本化し、DOM監視（`MutationObserver`/`setInterval`）を1系統に削減して軽量化。
-  - 吹き出し設定パネル（`inquiry-soap-bubble-panel`）が `overflow: hidden` な親要素の影響で非表示になっていたバグを修正。パネルを `document.body` 直下に配置し、⚙️ボタンの絶対座標から表示位置を動的計算するように改修。
+  - 設定ボタン（⚙️）および吹き出し設定パネル（`inquiry-soap-bubble-panel`）を不要と判断したため、完全に廃止し、ボタンは「問診整理」と「バイタル」の2つのみに整理。
   - `dev-proxy.user.js` および `install_scripts.bat` を統合スクリプトの適用に合わせて更新（スクリプト数を10個から9個に調整）。
   - Gitリポジトリ（origin main）へコミット・プッシュを完了。
 - **春日部市 URL修正・追加（計8施設）**（`projects/tools/maps/src/data/corrections.json`）（Claude Code / claude-sonnet-4-6）
