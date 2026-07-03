@@ -1,14 +1,24 @@
 # Active Handoff
 
-## 現在の担当: Cursor
-## タスク: 「主訴・所見」ボタン化実装完了 → Cursorでの動作確認
+## 現在の担当: ユーザー
+## タスク: AIチャットボットのモデルエラー修正およびクローラー管理画面の表示バグ修正完了 → 本番デプロイと確認
 ## ステータス: 引き継ぎ可能
-## 更新日時: 2026-06-18
+## 更新日時: 2026-07-02
 
 ## コンテキスト（背景・経緯）
-デジカルおよびWeborcaの運用における病名設定漏れ（検査に対する病名漏れ、急性期病名の放置）の課題に対し、実運用で知識のない方でも簡単に病名チェックおよび修正ができる解決策を実装する。
+* **デジカル病名チェック**: デジカルおよびWeborcaの運用における病名設定漏れ（検査に対する病名漏れ、急性期病名の放置）の課題に対し、実運用で知識のない方でも簡単に病名チェックおよび修正ができる解決策を実装する。
+* **AIチャットボット**: 廃止された `gemini-pro` モデルによる応答停止問題、およびクローラー管理画面で最終クロール日時が反映されない表示バグを解消する。
 
 ## 完了済みの作業
+- **職員ID 30（西山さん）の保存エラーおよび退職判定バグの解消**（`projects/clinic/staff-manager/`）（Antigravity / Gemini 3.5 Flash）
+  - **IDゼロ埋め標準化**: 送信ID `"30"` とスプレッドシート上の `"0030"` の表記揺れを吸収するため、`formatStaffId` ヘルパーを導入しID処理を統一。
+  - **未来の退職予定日考慮**: ID 30の西山さんに設定されていた未来の退職予定日（"2026-09-31"）が、従来の `!r[14]` （空値チェック）によって退職済みと誤判定されていたバグを解消。今日の日付と比較して未来日であれば在職中とみなす `isActiveStaff` 判定を導入。
+  - **対象ファイル**: `gas/Code.gs`、`server.js`、`main.js`、`js/sheets.js`、`js/api.js`。
+  - **動作検証**: API自動テスト（`run_api_tests.js`）およびモックエミュレーションテストにて正常動作を確認。
+- **AIチャットボットモデルエラー修正 & クローラー画面表示バグ修正**（`projects/products/ai-chatbot/`）（Antigravity / Gemini 3.5/1.5 Flash）
+  - バックエンド：廃止された `gemini-pro` および無効なモデル定義（`gemini-2.5-flash`等）を `validModels` およびデフォルトの `CHAT_MODEL` から除外し、現在動作する `gemini-1.5-flash` や `gemini-2.0-flash` 等を追加。さらに、動的フォールバック候補からも `models/gemini-pro` を除外するフィルタを追加。
+  - フロントエンド：学習データ管理画面（`CrawlerManagement.tsx`）の「最終更新」欄に、設定の更新時間 (`site.updatedAt`) ではなく、実際の最終クロール日時 (`site.lastCrawledAt`) を表示するように修正。型定義（`Site` インターフェース）にもプロパティを追加。
+  - 検証：バックエンド・フロントエンド双方の `npm run build` が型チェックも含めエラーなく完了することを確認。
 - **旧スクリプト2ファイルを `js/deprecated/` に移動**（`projects/m3-tampermonkey-scripts/js/`）（Claude Code / claude-sonnet-4-6）
   - `inquiry-soap-formatter.user.js` と `vital-sign-formatter.user.js` を `js/deprecated/` へ移動。
   - `install_scripts.bat`・`dev-proxy.user.js` いずれも旧ファイルを参照していないためパス変更なし。
@@ -88,14 +98,25 @@
   - クリック時: 空なら即挿入、テキストありなら confirm で上書き or カーソル位置挿入を選択。
   - `execCommand('insertText')` でProseMirror履歴を保持したまま挿入。
   - `handleInquiryInjection()` から isKartePage 条件で常時呼び出し（MutationObserver対応済み）。
+- **「主訴・所見」「生活」「透析」ボタンの極小化と一元管理への統合**（`projects/m3-tampermonkey-scripts/`）（Antigravity / Gemini 3.5 Flash）
+  - **SOAPスイート側への機能統合**: `lab-history-visualizer.user.js` に含まれていた透析値抽出・カルテHTML転記のロジック、および「透析」ボタンを、すべて `js/inquiry-vital-soap-suite.user.js` 内に統合。
+  - **ボタン配置の移動・極小化**: 「透析」ボタンをエディタ下部から「生活」ボタンの右隣に移動し、フォントサイズを `10px`、高さを `18px`、余白を `1px` に極小化。同時に「主訴・所見」および「生活」ボタンのサイズや隙間も同様に極小化し、右側のフォーマットツールバーと衝突せず1行に収まるようにレイアウトを調整。
+  - **誤マッチバグの解消**: 括弧内の単位部分（`MG/DL`等）を除去してマッチングする `stripUnit` 関数を実装。「Mg」が「β2MG」や「補正Ca」などの名称に誤マッチして上書きされる不具合、および「WBC/Hb/BS」が他要素の空行に誤マッチする不具合を、名称判定ガード（除外フィルタ）と巡回範囲の検査テーブル行限定（`div.css-1r9zmi8 table tbody tr`）によって根本解決。
+  - **旧ボタン削除**: `lab-history-visualizer.user.js` から不要になったエディタ下部のボタンインジェクション処理を削除。
+  - **対象ファイル**: `js/inquiry-vital-soap-suite.user.js`、`js/lab-history-visualizer.user.js`。
 
 ## 次にやること
 - **M3デジカル 「主訴・所見」ボタン化の動作確認**（Cursor担当）:
-  - `inquiry-soap-formatter.user.js` v1.4.0 をM3デジカルにインストール後、カルテ画面で「主訴・所見」がtealカラー表示されクリック可能になっているか確認。
+  - `inquiry-vital-soap-suite.user.js` をM3デジカルにインストール後、カルテ画面で「主訴・所見」がtealカラー表示されクリック可能になっているか確認。
 - **医療機関マップのCursorでの動作確認・UI微調整**:
   - 更新された医療機関データ（春日部市等）が正しくマップ上に読み込まれるかの最終チェックと、必要に応じたUI微調整（Cursor担当）。
 - **Remotion実装**: `animation_spec_01_dialysis_delay_habits.md` をもとにReact/TypeScriptコンポーネントを実装する（`video-remotion-developer` スキルが必要）。
 - **M3デジカル病名チェック実装**（並行して）: `implementation_plan.md` を元にGASコード・Tampermonkeyスクリプトを実装する。
+- **lab-history-visualizer.user.js の今後の検討課題（記録用）**:
+  - 本スクリプトは現状未完成で、エディタへの直接挿入UIは `inquiry-vital-soap-suite` に統合されましたが、以下の優れたビジュアル機能を持っています。今後の本格採用に向けた検討課題として引き継ぎます：
+    - ① 複数日付にわたる時系列検査値履歴テーブル（日付順での列表示）の作成。
+    - ② 各検査項目を個別に折れ線グラフ（SVGレンダリング）でビジュアル表示し、推移を直感的に追跡できる機能。
+    - ③ 基準値判定および前回検査値との比較によるトレンド（上昇・低下の矢印表示）の自動検知。
 
 ## 次の担当者へのメモ
 YouTube企画設計完了。
