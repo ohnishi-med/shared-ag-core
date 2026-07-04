@@ -110,7 +110,10 @@
     - メンテナンス効率化およびユーザー配布時の利便性向上のため、`inquiry-vital-soap-suite`（SOAP・バイタル・透析転記）、`lab-history-visualizer`（検査可視化）、`salt-intake-calculator`（塩分計算）、`hasegawa-hdrs-integration`（長谷川式）、`disease-care-assistant`（病名アシスタント）の5つを単一の統合リリース用スクリプト **`m3-digikar-copilot.user.js`** としてビルドできるようにした。
     - **開発環境の維持**: 開発時はこれまで通り各ファイルをモジュール単位で独立して修正できるよう、開発用ローカルプロキシ `dev-proxy.user.js` (v0.4) の `@require` は個々のモジュールファイルを指定した状態を維持する。
     - **ビルドツール**: `scratch/merge_scripts.js` を実行することで、5つの開発用モジュールファイルを自動的にマージし、変数衝突やボタン競合を防いだ統合版 `m3-digikar-copilot.user.js` を生成する。
-  - **対象ファイル**: `js/m3-digikar-copilot.user.js`、`js/dev-proxy.user.js`、`scratch/merge_scripts.js`。
+  - **推定塩分摂取計算（FE値）の走査バグ修正 (v1.7.3/v2.0.0)**:
+    - FENa/FEUAなどの計算元データを抽出する際、`tr` 全走査（`document.querySelectorAll('tr')`）を行っていたため、傷病名テーブル等の「高尿酸血症」や「尿路感染症」などの病名行（`尿`と`尿酸`を含む文字列）に誤マッチし、病名日付等をUA値として誤抽出・計算してしまう不具合を解消。
+    - 走査対象の行選択を、検査結果テーブル内（`div.css-1r9zmi8 table tbody tr`）のみに限定するよう修正。
+  - **対象ファイル**: `js/m3-digikar-copilot.user.js`、`js/salt-intake-calculator.user.js`。
 
 ## 次にやること
 - **統合コパイロットスクリプト (m3-digikar-copilot.user.js) の動作確認**:
