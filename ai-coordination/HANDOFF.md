@@ -107,18 +107,15 @@
   - **同一日付判定の文字列比較バグ修正 (v1.6.5/v1.3.6)**: 遡った日付で同一日内に複数列のデータが存在する場合（同日プレ/ポスト比較カラム構成など）、カラムヘッダー内の表記揺れ（「6/1」と「2026/6/1」など）によって文字列の単純比較が不一致となり、誤って空カラムを参照して `null` で上書きされてしまうバグを修正。`parseDateSafe` を用いた日付タイムスタンプ比較（`.getTime()`）に統一することで、正しく同一日付をグルーピングできるようにした。
   - **値が存在する有効列（activeCols）のみの動的抽出処理 (v1.6.6/v1.3.7)**: 表記揺れ解決後、UAや補正Caのように「同日複数列（BUNやCreのプレ/ポスト等で発生）がある日付に遡行したが、自身の項目は1列にしか数値が入っていない場合」に、空欄列まで取得して `null` で上書きしてしまう問題に対処するため、同じ日付のセル群のうち「実際に値が存在する列（activeCols）」のみを動的に絞り込んで `preVal` / `postVal` にマッピングするロジックに改修。これにより、UAや補正Ca等の測定値が確実に抽出されるように完全統一された。
   - **5つの個別スクリプトの統合 (v2.0.0)**:
-    - メンテナンス効率化およびリソース競合を防ぐため、`inquiry-vital-soap-suite`（SOAP・バイタル・透析転記）、`lab-history-visualizer`（検査可視化）、`salt-intake-calculator`（塩分計算）、`hasegawa-hdrs-integration`（長谷川式）、`disease-care-assistant`（病名アシスタント）の5つを単一の統合スクリプト **`m3-digikar-copilot.user.js`** に集約。
-    - 共通のDOM操作関数（`setNativeValue` 等）や患者情報抽出処理を一元化。
-    - 右上ヘッダーツールバー（顕微鏡マークの横）へのボタン群（📊・🧂・💾）のインジェクション処理を、重複のない単一の `MutationObserver` 監視ループに統合し、ボタン配置とクリック動作の競合を根本防止。
-    - 旧個別ファイルはすべて `js/deprecated/` ディレクトリへ退避し、開発用プロキシ `dev-proxy.user.js` を `v0.5` に更新して統合スクリプトの単一 `@require` ロードに変更。
-  - **対象ファイル**: `js/m3-digikar-copilot.user.js`、`js/dev-proxy.user.js`。
+    - メンテナンス効率化およびユーザー配布時の利便性向上のため、`inquiry-vital-soap-suite`（SOAP・バイタル・透析転記）、`lab-history-visualizer`（検査可視化）、`salt-intake-calculator`（塩分計算）、`hasegawa-hdrs-integration`（長谷川式）、`disease-care-assistant`（病名アシスタント）の5つを単一の統合リリース用スクリプト **`m3-digikar-copilot.user.js`** としてビルドできるようにした。
+    - **開発環境の維持**: 開発時はこれまで通り各ファイルをモジュール単位で独立して修正できるよう、開発用ローカルプロキシ `dev-proxy.user.js` (v0.4) の `@require` は個々のモジュールファイルを指定した状態を維持する。
+    - **ビルドツール**: `scratch/merge_scripts.js` を実行することで、5つの開発用モジュールファイルを自動的にマージし、変数衝突やボタン競合を防いだ統合版 `m3-digikar-copilot.user.js` を生成する。
+  - **対象ファイル**: `js/m3-digikar-copilot.user.js`、`js/dev-proxy.user.js`、`scratch/merge_scripts.js`。
 
 ## 次にやること
 - **統合コパイロットスクリプト (m3-digikar-copilot.user.js) の動作確認**:
-  - `dev-proxy.user.js` (v0.5) を通じて、M3デジカルカルテ画面で以下の機能がすべて正常に共存・作動することを確認する。
-    1. エディタ内「主訴・所見」「生活」「透析」ボタンの転記処理。
-    2. 右上ヘッダーの「📊（可視化）」「🧂（塩分計算）」「💾（長谷川式）」ボタンのレイアウトと、それぞれのモーダル・データ連携ポップアップの起動。
-    3. 右下の「🩺 病名アシスタント」フローティングパネルおよび保存割り込みダイアログの挙動。
+  - 各モジュールの変更を行った際、`node scratch/merge_scripts.js` で統合版をビルドし、リリース用として正常に動作することを確認する。
+  - 開発用ローカルプロキシ `dev-proxy.user.js` (v0.4) を通じた個別モジュールの動作確認。
 - **医療機関マップのCursorでの動作確認・UI微調整**:
   - 更新された医療機関データ（春日部市等）が正しくマップ上に読み込まれるかの最終チェックと、必要に応じたUI微調整（Cursor担当）。
 - **Remotion実装**: `animation_spec_01_dialysis_delay_habits.md` をもとにReact/TypeScriptコンポーネントを実装する（`video-remotion-developer` スキルが必要）。
