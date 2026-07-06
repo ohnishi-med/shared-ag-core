@@ -1,15 +1,103 @@
 # Active Handoff
 
 ## 現在の担当: ユーザー
-## タスク: AIチャットボットのモデルエラー修正およびクローラー管理画面の表示バグ修正完了 → 本番デプロイと確認
+## タスク: 自動受付システムの月初初回誤判定・類似セット誤適用バグ修正の完了
 ## ステータス: 引き継ぎ可能
-## 更新日時: 2026-07-02
+## 更新日時: 2026-07-06
 
 ## コンテキスト（背景・経緯）
+* **自動受付システムのバグ修正**: 月途中の月曜日（7/6）に全員に対して月初回の「リブレあり」算定セットが誤適用される不具合を修正する。
+* **FEUA / FENa 計算の不整合修正**: カルテ上の実際の検査結果の単位（尿中尿酸: g/L, 尿中ナトリウム: g/L, 尿中クレアチニン: g/L）と、スクリプト側の計算前提にズレがあり、FEUAが100分の1過小、FENaが約2.3倍過大になる問題を解消する。
 * **デジカル病名チェック**: デジカルおよびWeborcaの運用における病名設定漏れ（検査に対する病名漏れ、急性期病名の放置）の課題に対し、実運用で知識のない方でも簡単に病名チェックおよび修正ができる解決策を実装する。
 * **AIチャットボット**: 廃止された `gemini-pro` モデルによる応答停止問題、およびクローラー管理画面で最終クロール日時が反映されない表示バグを解消する。
+* **スタッフマネージャー**: 職員が個人レポートを閲覧した際等に、スプレッドシート上の総評コメントが消失してしまうバグを解消する。
 
 ## 完了済みの作業
+- **自動受付システムの月初初回誤判定・類似セット誤適用バグ修正**（`projects/tools/weborca-auto-reception/`）（Antigravity / Gemini 3.5 Flash）
+  - **変更ファイル**: 
+    - `gas_api.gs`（修正）
+    - `digikar_auto_input.user.js`（修正）
+  - **具体的な修正内容**:
+    - GAS API: `determineSet` にスプレッドシート上の `day`（曜日情報）を渡し、**「日付が3日以下（`dayNum <= 3`）」であることを初回判定の前提条件（ガード条件）**として追加。その上で同月内で前日までにその曜日グループ（月水金または火木土）の透析日が出現していなければ初回とする高精度判定に刷新。APIレスポンスの各患者データに `day` プロパティを追加。
+    - JSスクリプト: APIから受け取った `day` を `determineSetJS` の判定に組み込むようにし、こちらにも**「日付が3日以下（`dayNum <= 3`）」のガード条件**を適用。セット要素の検索（`findSetElement`）において「完全一致」を最優先で検索する二段階ロジックに改修し、部分一致による `_リブレ` などの類似セットへの誤クリックを完全に防止。
+  - **動作確認**: 
+    - `scratch/test_determine_set.js` を作成し、2026年7月のカレンダー（7/6バグ発生日を含む）でテストを実行。すべて期待通りの判定結果となることを検証済み。
+  - **次に行うべきこと**: 
+    - GASエディタに修正後の `gas_api.gs` を貼り付けて新しいバージョンとしてデプロイする。
+    - Tampermonkeyに修正後の `digikar_auto_input.user.js` を反映し、デジカル受付画面にて一括入力を行い、7/6（月曜・通常日）の患者に対して通常セットが正しく適用され、リブレありセットが誤適用されないか確認する。
+
+- **FEUAおよびFENa計算アルゴリズムのバグ修正**（`projects/m3-tampermonkey-scripts/`）（Antigravity / Gemini 3.5 Flash）
+  - **変更ファイル**: 
+    - `salt-intake-calculator.user.js`（修正）
+    - `m3-digikar-copilot.user.js`（修正）
+    - `salt-intake-calculator/test.js`（修正）
+  - **具体的な修正内容**:
+    - FEUA: 尿中尿酸が `g/L` 単位でパースされているため、以前の `uVal = uVal / 100`（mg/dL前提のg/L換算処理）を削除。
+    - FENa: 尿中ナトリウムも `g/L` 単位でパースされているため、mEq/Lへの換算（原子量23）と尿中クレアチニンのmg/dLへの換算を反映し、計算式の係数を `* 100` から `* (1000 / 23)` に修正。
+    - test.js: テストのモックデータの尿中尿酸の値を実表記の `g/L` に合わせ（`60.0` → `0.6`）、FENa のアサーションを追加。
+  - **動作確認**: `node test.js` を実行し、すべてのテストがパスすることを確認済み。
+  - **次に行うべきこと**: Tampermonkey上でスクリプト（`m3-digikar-copilot.user.js`）を更新し、実際のデジカル画面で計算値が妥当か（FEUA: 4〜8% 程度、FENa: 1% 未満程度）を確認する。
+
+- **総評コメント消失バグの追加修正**（`projects/clinic/staff-manager/gas/Code.gs`）（Claude Code / claude-sonnet-4-6）
+  - **問題**: 前回の修正（handleGetEvaluationReportForStaff・submitSelfEvaluation・handleSubmitLeaderEvaluation）では対処されていなかった2箇所が残存していた。
+  - **修正1 — `handleSaveStaffData`（line 551）**: `var leaderComment = ev.leaderComment || ''` が `undefined` を `''` に変換し、空文字列がそのまま `saveEvalMetaDirect` に渡されて `saveScore` でコメントを空上書きしていた。`typeof` チェックにより非空文字列のみ使用し、それ以外は `undefined` を渡すよう修正。
+  - **修正2 — `handleUpdateEvalStatus`（line 769）**: `params.leaderComment` として `''` がフロントエンドから送られた場合に同様の上書きが発生していた。同じロジックで `undefined` に正規化して渡すよう修正。
+  - **変更ファイル**: `gas/Code.gs`
+  - **動作確認**: 静的コードレビューのみ。実機確認は未実施。
+  - **注意点**: 前回修正分（Antigravity）を含め、現在ローカルの `Code.gs` には全修正が入っているが、**GASへの本番デプロイがまだ実施されていない**。バグが本番環境で再現している場合はデプロイが優先。
+  - **次に行うべきこと**: GASエディタを開き、`gas/Code.gs` の内容を貼り付けて新しいデプロイを実行する。
+
+- **個人レポート閲覧時の総評コメント消失バグの解消**（`projects/clinic/staff-manager/`）（Antigravity / Gemini 3.5 Flash）
+  - **問題**: 評価メタ情報（`evaluation_meta`）シートの `leaderComment` カラム（D列）は常に空で、実際の総評コメントは `evaluation` シートの `summary_comment` に移行されていた。しかし、職員がレポートを閲覧した際（ステータスが `confirmed` から `acknowledged` に自動更新される時）や、自己評価・リーダー評価の送信時に、`EVAL_META` の空文字列（`metaRow[3] || ''`）をそのまま読み取って `saveEvalMetaDirect` に引数として渡していたため、`evaluation` シートの `summary_comment` が空文字列で上書き・消失してしまっていた。
+  - **修正内容**: `saveEvalMetaDirect` を呼び出している箇所のうち、ステータス変更のみでコメントの更新を伴わない箇所（`submitSelfEvaluation`、`handleSubmitLeaderEvaluation`、`handleGetEvaluationReportForStaff`）において、引数 `leaderComment` に `undefined` を渡すように修正。これにより、既存の `summary_comment` が上書きされないようにした。また、`handleBulkSubmitLeaderEvaluations` でもコメント未送信時に `undefined` を渡すように簡略化した。
+  - **変更ファイル**: `gas/Code.gs`（修正）
+  - **動作確認**: 静的コードレビューおよびロジックの動作検証。
+
+- **透析指標WBC誤抽出バグ修正 v1.6.9→v1.6.10**（`projects/m3-tampermonkey-scripts/js/inquiry-vital-soap-suite.user.js`）（Claude Code / claude-sonnet-4-6）
+  - **Bug 1 修正**: 白血球像（分画）がある患者でWBCが取得できない問題。`白血球像　前` セクションヘッダー行が `白血球` キーにマッチして正しいWBC行を上書きしていた。
+  - **Bug 2 修正**: 尿中白血球（`/HPF` 単位）が血液WBCと誤認される問題。`白血球（WBC）(/HPF)` が stripUnit 後に `白血球` になりマッチしていた。
+  - **修正内容**: `extractDialysisMetrics()` の recent ループ内に WBC 専用ガード3行を追加。`白血球像`含む行・`尿中`含む行・`/HPF` または `/WF` 単位を持つ行を除外。
+  - **変更ファイル**: `js/inquiry-vital-soap-suite.user.js`（line 2581〜2584 に3行追加）
+  - **動作確認**: コードレビューのみ。実機確認（白血球像・尿沈渣両方がある患者でのWBC値表示）は未実施。
+- **疾患別指標ボタン追加 v1.6.10→v1.7.0**（`projects/m3-tampermonkey-scripts/js/inquiry-vital-soap-suite.user.js`）（Claude Code / claude-sonnet-4-6）
+  - 検査結果タブのツールバー（ビューアーボタン横）に [高血圧][DM][CKD] ボタンを追加。
+  - `DISEASE_METRICS_CONFIG`（HTN/DM/CKD 各項目・基準値・除外キー定義）、`extractDiseaseMetrics(diseaseKey)`（テーブルから直近値抽出）、`generateDiseaseHTML(data)`（カルテHTML生成）、`injectLabResultButtons()`（ツールバー注入）を実装。
+  - `handleSuiteInjection()` 冒頭で `injectLabResultButtons()` を呼び出し、MutationObserver・setInterval 両方でタブ切替後も自動注入。
+  - 除外ロジック（`-尿`・`尿中`・`gfr`・`推算`・`比` などの exclude 配列）により Cre/UA 等の誤マッチを防止。first-match 戦略（`matched` フラグ）で上書き誤認を回避。
+  - **動作確認**: コードレビューのみ。実機確認（ボタン表示・各疾患データ抽出・カルテ挿入）は未実施。
+  - **注意点**: コパイロット（m3-digikar-copilot.user.js）への反映は未実施。
+- **同修正をコパイロットへ反映 v2.3.0→v2.3.1**（`projects/m3-tampermonkey-scripts/js/m3-digikar-copilot.user.js`）（Claude Code / claude-sonnet-4-6）
+  - `inquiry-vital-soap-suite.user.js` v1.6.10 と同内容のWBC除外ガード3行をコパイロットに直接追記（merge_scripts.js は存在しないため手動反映）。
+
+- **parseDateSafe 年補完バグ修正 + normalizeDateMap 追加 v1.7.0→v1.7.1**（`projects/m3-tampermonkey-scripts/js/inquiry-vital-soap-suite.user.js`）（Claude Code / claude-sonnet-4-6）
+  - **問題**: M/D 形式の日付（例: "10/10"）に現在年 2026 を補完すると、過去（2025年10月）のデータが未来日付（2026年10月）として扱われ、最新の 2026/6 データより新しいと誤判定されて上書きされていた。
+  - **修正1 - parseDateSafe**: M/D 形式に対して「候補日が today より未来なら year-1 を使う」ロジックを追加。YYYY/M/D 形式は従来通りそのまま使用。
+  - **修正2 - normalizeDateMap**: dateMap 内の M/D 形式のキーを YYYY/M/D に正規化する `normalizeDateMap()` ヘルパーを追加。同一 dateMap 内の YYYY 形式カラムから baseYear を推定し、M/D が未来日ならその前年を付与する。
+  - **適用箇所**: `extractDialysisMetrics()` および `extractDiseaseMetrics()` の dateMap 構築ループ直後に `normalizeDateMap(dateMap)` を呼び出す。
+  - **変更ファイル**: `js/inquiry-vital-soap-suite.user.js`（parseDateSafe 置換 lines ~2456-2472, normalizeDateMap 追加, 呼び出し2箇所追加）
+  - **動作確認**: コードレビューのみ。実機確認（古い M/D 日付と YYYY/M/D が混在する検査テーブルでの最新値判定）は未実施。
+
+- **同修正をコパイロットへ反映 v2.3.1→v2.3.2**（`projects/m3-tampermonkey-scripts/js/m3-digikar-copilot.user.js`）（Claude Code / claude-sonnet-4-6）
+  - `inquiry-vital-soap-suite.user.js` v1.7.1 と同内容の `parseDateSafe` 更新・`normalizeDateMap` 追加・呼び出しをコパイロットに反映。
+  - Node.js スクリプトによるラインベース置換（`parseDateSafe` lines 2412-2427 を置換、dateMap forEach 直後に `normalizeDateMap(dateMap)` 挿入）。
+  - **変更ファイル**: `js/m3-digikar-copilot.user.js`（parseDateSafe + normalizeDateMap 更新、line ~2465 に呼び出し追加）
+  - **動作確認**: コードレビューのみ。実機確認は未実施。
+
+- **m3-digikar-copilot.user.js の構成刷新 v2.0.0→v2.3.0**（Claude Code / claude-sonnet-4-6）
+  - **透析指標列ズレ修正のコパイロット反映（v2.0.1）**: `inquiry-vital-soap-suite.user.js` で実施済みの列ズレ修正（タブ→`&nbsp;`化・`getActualWidth`/`padNBSP` 導入）を、コパイロットの Module 1・Module 2 両方に適用。Module 2 が JS ホイスティングで後勝ちするため両方の更新が必須だった。
+  - **モジュール5「病名チェック」削除（v2.1.0）**: ユーザー指示により病名チェック＆クレンジングアシスタント（`initPanel`/`setupSaveHook`/`setInterval(checkDiseases,3000)`）を全削除（755行）。保存フックも除去。`Copilot.openVisualizerModal`参照も除去。
+  - **モジュール2「検査履歴可視化」削除（v2.2.0）**: ユーザー指示によりLab History Visualizer（SVGチャートモーダル・ツールバーボタン）を全削除（約70KB）。`lhv-toolbar-btn-container`・`CHART_ICON_SVG`・`Copilot.openVisualizerModal` も除去。
+  - **モジュール5「日数・インスリン・SMBG計算」追加（v2.3.0）**: `date-insulin-calc.user.js`（v6.3）の全機能をモジュール5として統合。日付→日数計算・インスリン本数計算・C150 SMBG自動計算＆カルテ挿入のUIをヘッダー（`span.css-1ypjkz1`）に挿入。既存モジュールとのID競合なし。`observer` 変数名を `m5observer` に改名（外側スコープの変数と競合回避）。
+  - **変更ファイル**: `projects/m3-tampermonkey-scripts/js/m3-digikar-copilot.user.js`
+  - **動作確認**: コードレビューのみ。実機確認（Tampermonkey への反映・各モジュールの動作）は未実施。
+  - **未解決・注意点**: `date-insulin-calc.user.js` は今後も独立スクリプトとして残存。コパイロットとの二重読み込みを防ぐため、コパイロットを使用する環境では `date-insulin-calc.user.js` を Tampermonkey で無効化すること。
+- **透析指標の列ズレ修正（タブ→&nbsp;化）v1.6.6→v1.6.7**（`projects/m3-tampermonkey-scripts/js/inquiry-vital-soap-suite.user.js`）（Claude Code / claude-sonnet-4-6）
+  - **問題**: `generateDialysisHTML` がタブ文字 `\t` を `<p>` タグ内で使用していたため、tiptap/ProseMirror の保存・再レンダリング時にタブが単一スペースに正規化され列がズレていた。
+  - **修正**: `padTabEnd`（`\t` ベース）を廃止し、`padNBSP`（U+00A0 ベース）に置き換え。U+00A0はtiptapのシリアライズ後も文字として保持されるため保存前後で列ズレが生じない。`getVisualWidth` を再利用し `NBSP_FACTOR=1.5` で視覚幅を `&nbsp;` 数に変換。ヘッダー行・compare行・recent各グループ行すべて対応。
+  - **変更ファイル**: `js/inquiry-vital-soap-suite.user.js`（`padTabEnd` → `padNBSP` + `NBSP`/`NBSP_FACTOR` 定数追加、`generateDialysisHTML` のヘッダー・各データ行を更新）
+  - **動作確認**: コードレビューのみ。実機確認（カルテ保存前後の列揃え）は未実施。
+  - **未解決・注意点**: `NBSP_FACTOR`（1.5）はフォントサイズ依存。実機確認後にズレがある場合は同定数を調整する。統合コパイロット `m3-digikar-copilot.user.js` へ反映するには `node scratch/merge_scripts.js` の実行が必要。
+  - **次の担当者**: 実機確認後に列ズレが残る場合は `NBSP_FACTOR`（行2295）と `COL_LABEL`/`COL_VALUE`（`generateDialysisHTML` 内）を調整する。
 - **職員ID 30（西山さん）の保存エラーおよび退職判定バグの解消**（`projects/clinic/staff-manager/`）（Antigravity / Gemini 3.5 Flash）
   - **IDゼロ埋め標準化**: 送信ID `"30"` とスプレッドシート上の `"0030"` の表記揺れを吸収するため、`formatStaffId` ヘルパーを導入しID処理を統一。
   - **未来の退職予定日考慮**: ID 30の西山さんに設定されていた未来の退職予定日（"2026-09-31"）が、従来の `!r[14]` （空値チェック）によって退職済みと誤判定されていたバグを解消。今日の日付と比較して未来日であれば在職中とみなす `isActiveStaff` 判定を導入。
