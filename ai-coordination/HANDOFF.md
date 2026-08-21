@@ -214,7 +214,7 @@ brandStems抽出ロジックは、Claude Codeが元々書いた`build-antibiotic
 
 ---
 
-# HANDOFF: lab-viewer-dashboard.user.js v1.23.0→v1.31.1 別ウィンドウ（追跡表示）の表に「未測定項目は非表示」トグル機能を追加、印刷時の表切れ不具合を修正、尿検査グループの分割・並び順変更・CKD-MBDグループ改称、Gist配信対応、膠原病ドメイン新設、肝機能・蛋白グループ統合＋T-Bil/CK追加、尿沈渣ドメイン新設＋テキスト値対応、新規タブ追跡不具合を修正、2列段組み表示（トグル可・幅自動判定）、評価結果パネルの幅を可変化、オーナータブ終了後の追跡停止不具合を修正、git commit・push・Gist自動同期基盤へ統合、eGFR=8到達予測を追加、別ウィンドウの勝手な再オープン不具合を修正、検査結果印刷リマインダー機能を新設、印刷リマインダーに診断ログ追加
+# HANDOFF: lab-viewer-dashboard.user.js v1.23.0→v1.31.1 別ウィンドウ（追跡表示）の表に「未測定項目は非表示」トグル機能を追加、印刷時の表切れ不具合を修正、尿検査グループの分割・並び順変更・CKD-MBDグループ改称、Gist配信対応、膠原病ドメイン新設、肝機能・蛋白グループ統合＋T-Bil/CK追加、尿沈渣ドメイン新設＋テキスト値対応、新規タブ追跡不具合を修正、2列段組み表示（トグル可・幅自動判定）、評価結果パネルの幅を可変化、オーナータブ終了後の追跡停止不具合を修正、git commit・push・Gist自動同期基盤へ統合、eGFR=8到達予測を追加、別ウィンドウの勝手な再オープン不具合を修正、検査結果印刷リマインダー機能を新設、印刷リマインダーに診断ログ追加、診断ログのconsole.debug→console.log変更
 
 ## 引き継ぎ日時
 2026-08-21 JST
@@ -222,7 +222,7 @@ brandStems抽出ロジックは、Claude Codeが元々書いた`build-antibiotic
 ## 担当: Claude Code
 
 ## 対象ファイル
-- `projects/m3-tampermonkey-scripts/js/lab-viewer-dashboard.user.js`（v1.23.0→v1.31.1）
+- `projects/m3-tampermonkey-scripts/js/lab-viewer-dashboard.user.js`（v1.23.0→v1.31.2）
 - `projects/m3-tampermonkey-scripts/lab-item-map.json`（尿検査グループの分割・電解質グループの並び順コメント更新・CKD-MBDグループ改称・膠原病グループ新設・肝機能/蛋白グループ統合＋項目順変更・T-Bil/CK追加・尿沈渣グループ新設）
 - `projects/m3-tampermonkey-scripts/sync-lab-item-map.js`（新フィールドparentGroupLabel・textValueのITEM_DEFS生成・重複チェック対応）
 - `projects/m3-tampermonkey-scripts/assets/lab-viewer-dom-dumps/`（ユーザーが実機DOMダンプ多数を集約保存。SLEkanren.txt・Zn.txt・Znhoka.txtはこちらで保存、ACTH,浸透圧.txt・BAP.txt・C-peptide.txt・GAD.txt・OGTT.txt・PRA.txt・検査Window.txtはユーザー側で保存）
@@ -1000,6 +1000,34 @@ if (!companionWin) companionWin = window.open('', 'lvd-companion-window');
 - 「検査日以降で最初の来院日」は出るが本日と一致しない場合 → 仕様通りの正常な非該当（2回目以降の来院等）。
 このログの内容次第で、次の修正方針（DOM検出ロジックの調整等）が変わるため、ログの内容をそのまま
 共有してもらうのが最も効率的。
+
+## 追記17（同日中のフォローアップ・v1.31.1→v1.31.2、真の原因判明：console.debugのVerboseフィルタ）
+ユーザーが実機のコンソールログ全体を共有。`[Lab Viewer Dashboard] v1.31.1 起動`は出力されているのに
+`[LVD-PrintReminder`は1行も無く、待機を促したところ「いや何秒待っても変わらないよ」との返答。単純な
+タイミングの問題ではないと判明。
+
+### 真因
+`console.debug()`はChrome/Edge等のDevToolsコンソールで「Verbose」ログレベルに分類される。コンソールの
+ログレベルフィルタ設定（多くの環境でデフォルトでは全レベル表示だが、環境によってVerboseが除外されて
+いることがある）次第では、`console.debug`の出力がコンソール上に一切表示されない。これは
+`[LVD-PrintReminder]`だけでなく、v1.10.4以来ずっと使われてきた`[LVD-Track]`診断ログも**同じ理由で
+今まで一度も実機で確認できていなかった可能性がある**（このセッションを通じて「実機でのログ確認・
+動作確認は未実施」という記載を繰り返してきたのは、単に確認する機会が無かっただけでなく、そもそも
+見えていなかった可能性が高い）。
+
+### 対応内容
+`[LVD-Track#タブID]`・`[LVD-PrintReminder#タブID]`の診断ログ（計17箇所）を全て`console.debug`から
+`console.log`へ変更した。`console.log`はコンソールのデフォルト表示レベルに含まれ、フィルタ設定に
+関わらず確実に表示される。
+
+`git commit`（`de70edb`）・`git push`済み。push時のpre-pushフックでGistも自動同期され、
+`lab-viewer-dashboard.user.js`がv1.31.2で更新されたことをpush出力で確認済み。
+
+### 次にやること
+ユーザーに再度カルテページを開いてもらい、`[LVD-PrintReminder#...]`のログが今度こそ表示されるか確認して
+もらう。表示されれば、そのログの内容（検査日・来院日一覧・判定結果）から実際の不具合有無を切り分けられる。
+表示されてもなお期待通りポップアップが出ない場合は、ログの内容自体（`findVisitHistoryTable()`が表を
+見つけられていない、検査データが0件、該当日と本日が不一致等）を手掛かりに次の対応を検討する。
 
 ---
 
