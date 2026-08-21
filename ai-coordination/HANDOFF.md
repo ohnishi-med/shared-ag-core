@@ -214,7 +214,7 @@ brandStems抽出ロジックは、Claude Codeが元々書いた`build-antibiotic
 
 ---
 
-# HANDOFF: lab-viewer-dashboard.user.js v1.23.0→v1.31.0 別ウィンドウ（追跡表示）の表に「未測定項目は非表示」トグル機能を追加、印刷時の表切れ不具合を修正、尿検査グループの分割・並び順変更・CKD-MBDグループ改称、Gist配信対応、膠原病ドメイン新設、肝機能・蛋白グループ統合＋T-Bil/CK追加、尿沈渣ドメイン新設＋テキスト値対応、新規タブ追跡不具合を修正、2列段組み表示（トグル可・幅自動判定）、評価結果パネルの幅を可変化、オーナータブ終了後の追跡停止不具合を修正、git commit・push・Gist自動同期基盤へ統合、eGFR=8到達予測を追加、別ウィンドウの勝手な再オープン不具合を修正、検査結果印刷リマインダー機能を新設
+# HANDOFF: lab-viewer-dashboard.user.js v1.23.0→v1.31.1 別ウィンドウ（追跡表示）の表に「未測定項目は非表示」トグル機能を追加、印刷時の表切れ不具合を修正、尿検査グループの分割・並び順変更・CKD-MBDグループ改称、Gist配信対応、膠原病ドメイン新設、肝機能・蛋白グループ統合＋T-Bil/CK追加、尿沈渣ドメイン新設＋テキスト値対応、新規タブ追跡不具合を修正、2列段組み表示（トグル可・幅自動判定）、評価結果パネルの幅を可変化、オーナータブ終了後の追跡停止不具合を修正、git commit・push・Gist自動同期基盤へ統合、eGFR=8到達予測を追加、別ウィンドウの勝手な再オープン不具合を修正、検査結果印刷リマインダー機能を新設、印刷リマインダーに診断ログ追加
 
 ## 引き継ぎ日時
 2026-08-21 JST
@@ -222,7 +222,7 @@ brandStems抽出ロジックは、Claude Codeが元々書いた`build-antibiotic
 ## 担当: Claude Code
 
 ## 対象ファイル
-- `projects/m3-tampermonkey-scripts/js/lab-viewer-dashboard.user.js`（v1.23.0→v1.31.0）
+- `projects/m3-tampermonkey-scripts/js/lab-viewer-dashboard.user.js`（v1.23.0→v1.31.1）
 - `projects/m3-tampermonkey-scripts/lab-item-map.json`（尿検査グループの分割・電解質グループの並び順コメント更新・CKD-MBDグループ改称・膠原病グループ新設・肝機能/蛋白グループ統合＋項目順変更・T-Bil/CK追加・尿沈渣グループ新設）
 - `projects/m3-tampermonkey-scripts/sync-lab-item-map.js`（新フィールドparentGroupLabel・textValueのITEM_DEFS生成・重複チェック対応）
 - `projects/m3-tampermonkey-scripts/assets/lab-viewer-dom-dumps/`（ユーザーが実機DOMダンプ多数を集約保存。SLEkanren.txt・Zn.txt・Znhoka.txtはこちらで保存、ACTH,浸透圧.txt・BAP.txt・C-peptide.txt・GAD.txt・OGTT.txt・PRA.txt・検査Window.txtはユーザー側で保存）
@@ -951,6 +951,55 @@ if (!companionWin) companionWin = window.open('', 'lvd-companion-window');
 タブ・診療履歴タブへの瞬間切替が画面上で不自然に見えないか（ユーザーの目に留まる程度のちらつきが発生する
 可能性がある）、(3)「はい」を選んだ際に1列表示での印刷が正しく実行されるか、(4)想定外の患者で誤ってポップ
 アップが出ないか、を確認してほしい。
+
+## 追記16（同日中のフォローアップ・v1.31.0→v1.31.1、原因切り分け用の診断ログ追加）
+ユーザーが実機で確認したところ「ポップアップはでないですね。動作の確認が取れないです」と報告。
+`labResultPrintReminderTick()`は判定の各段階（カルテページ判定・患者ID検出・検査データ有無・診療履歴の
+来院日一覧取得・該当日判定等）で早期returnする箇所が多いが、companionTrackerTick()と違ってログを一切
+出しておらず、ポップアップが出ない場合にコンソールを見ても手がかりが皆無だった。
+
+### 対応内容
+`labResultPrintReminderTick()`の全ての早期return箇所に診断ログを追加。専用プレフィックス
+`[LVD-PrintReminder#タブID]`を使用（既存の`[LVD-Track#タブID]`と同じ命名規則）。状態が変化した時だけ
+ログを出す設計（2秒ごとの全tickでスパムしない）とし、以下を出力するようにした：
+- カルテページ判定・患者ID検出の状態（従来は完全に無音だった最初の2つの早期return）
+- 判定開始時の患者ID・氏名
+- 直近検査日
+- 診療履歴から取得した来院日一覧（全件）
+- 検査日以降で最初の来院日と本日の日付
+- 確認ダイアログを表示する条件が成立したかどうか、そのユーザー応答
+
+機能自体のロジックは変更していない（ログ追加のみ）。
+
+### 動作確認
+`node --check`で構文エラー無し。ログ追加後もNode.js単体テストで確認ポップアップ相当の処理
+（`confirm()`呼び出し）が引き続き正しいタイミングで発火することを回帰確認済み（テスト後に一時
+ファイルは削除済み）。実際のログ出力例（テストハーネスでのコンソール出力）：
+```
+[LVD-PrintReminder#xxxx] karte=true id=P1 checked=(none)
+[LVD-PrintReminder#xxxx] 判定開始。id=P1 name=P1
+[LVD-PrintReminder#xxxx] 直近検査日=2026/8/15
+[LVD-PrintReminder#xxxx] 診療履歴の来院日一覧（4件）=["2026/8/18","2026/8/15","2026/8/12","2026/8/8"]
+[LVD-PrintReminder#xxxx] 検査日以降で最初の来院日=2026/8/15（本日=2026/8/15）
+[LVD-PrintReminder#xxxx] 条件成立。確認ポップアップを表示します。
+[LVD-PrintReminder#xxxx] ユーザー応答=true
+```
+
+`git commit`（`a45e60b`）・`git push`済み。push時のpre-pushフックでGistも自動同期され、
+`lab-viewer-dashboard.user.js`がv1.31.1で更新されたことをpush出力で確認済み。
+
+### 次にやること（ユーザーへの依頼）
+実機でブラウザのコンソール（F12）を開いた状態でカルテタブを開き直し、`[LVD-PrintReminder#...]`の
+ログがどこまで出て、どこで止まっている（またはどんな値になっている）かを確認してほしい。特に：
+- ログが1行も出ない場合 → `karte`または`id`の検出自体が失敗している可能性（`isKartePatientPage()`・
+  `getPatientIdentity()`側の問題）。
+- 「直近検査日」より先に進まない場合 → 検査結果タブからデータを抽出できていない
+  （`extractLabTableData()`側、または対象患者に検査データが無い）。
+- 「来院日一覧」が空配列`[]`の場合 → `findVisitHistoryTable()`が診療履歴の表を見つけられていない
+  （実機のCSS構造が今回確認したダンプと異なる可能性）。
+- 「検査日以降で最初の来院日」は出るが本日と一致しない場合 → 仕様通りの正常な非該当（2回目以降の来院等）。
+このログの内容次第で、次の修正方針（DOM検出ロジックの調整等）が変わるため、ログの内容をそのまま
+共有してもらうのが最も効率的。
 
 ---
 
