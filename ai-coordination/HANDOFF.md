@@ -1,4 +1,4 @@
-# HANDOFF: m3-digikar-copilot.user.js v2.58.140→v2.58.143 患者名下サマリーのHD対応（HbA1c/GA優先ロジック修正＋HD専用表示項目）（未push）
+# HANDOFF: m3-digikar-copilot.user.js v2.58.140→v2.58.143 患者名下サマリーのHD対応（HbA1c/GA優先ロジック修正＋HD専用表示項目）・push完了（Gist同期済み）
 
 ## 引き継ぎ日時
 2026-08-22 JST
@@ -86,7 +86,15 @@ UACR/UPCR（`UACR_OR_UPCR`）は`SUMMARY_ITEMS_HD`に含めないことで、HD�
 ユーザーから「NT-proBNPはフルだと長いから、NTpBNP でOKです」との指示。`SUMMARY_ITEMS_HD`の
 `NTpBNP`項目の表示ラベルを`'NT-proBNP'`→`'NTpBNP'`に変更（内部キー名と同一表記になった）。
 `node --check`で構文エラー無し。表示文言のみの変更のためロジックテストは不要と判断し実施せず。
-commit・push未実施（引き続き指示待ち）。
+
+## 追記3（ユーザー「PUSHせよ」の指示によりcommit・push完了）
+`lab-viewer-dashboard.user.js`（v1.32.0→v1.33.1、印刷リマインダー精緻化＋補正Ca移動）と
+`m3-digikar-copilot.user.js`（v2.58.140→v2.58.143、本エントリの一連の変更）をまとめて
+commit・push済み（commit `69bb8a9`、`m3degikar_modifier`リポジトリ）。pre-pushフックによる
+Gist同期も完了（全15スクリプト分の同期メッセージを出力終了、`lab-viewer-dashboard.user.js`
+`m3-digikar-copilot.user.js`とも反映確認済み）。事前に説明していた通り、別セッション由来の
+未コミット変更（`detectDialysisFromSummaryText()`のv2.58.139/140修正）も同一コミットに
+不可分に含まれている。実機（Tampermonkey＋M3デジカル）での動作確認はまだユーザー側で未実施。
 
 ---
 
